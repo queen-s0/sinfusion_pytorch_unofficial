@@ -16,17 +16,20 @@ def main(args):
 
     dataset = CropImageDataset(args.image_path, args.image_size)
 
-    trainer = Trainer(diffusion, dataset)
+    trainer = Trainer(diffusion, 
+                      dataset,
+                      train_batch_size=4,
+                      train_lr=1e-5)
 
     trainer.train()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('image_path')
-    parser.add_argument('-T', '--timesteps', default=50)
-    parser.add_argument('--sampling_timesteps', default=50)
-    parser.add_argument('-l', '--loss_type', default='l2')
-    parser.add_argument('--image_size', default=128)
+    parser.add_argument('-i', '--image_path', type=str, required=True)
+    parser.add_argument('-T', '--timesteps', type=int, default=50)
+    parser.add_argument('-l', '--loss_type', type=str, default='l2')
+    parser.add_argument('--sampling_timesteps', type=int, default=50)
+    parser.add_argument('--image_size', type=int, default=128)
     args = parser.parse_args()
     
     main(args)
