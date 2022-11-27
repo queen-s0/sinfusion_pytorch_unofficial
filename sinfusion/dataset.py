@@ -15,7 +15,7 @@ class CropImageDataset(Dataset):
         h, w = image.shape[-2:]
         self.t = Compose([
             RandomCrop(int(0.95 * min(h, w))),
-            # Resize(resolution)
+            Resize(resolution)
         ])
 
     def __len__(self):
