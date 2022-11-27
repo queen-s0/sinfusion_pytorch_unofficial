@@ -114,7 +114,7 @@ class Unet(nn.Module):
         x = self.init_conv(x)
         # r = x.clone()
 
-        t = self.time_mlp(time) if time else None
+        t = self.time_mlp(time) if time is None else None
 
         h = []
 
