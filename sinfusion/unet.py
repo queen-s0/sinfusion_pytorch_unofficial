@@ -50,7 +50,6 @@ class Unet(nn.Module):
         dim,
         channels = 3,
         num_blocks = 8,
-        # ???
         self_condition = False,
         learned_variance = False,
         learned_sinusoidal_cond = False,
