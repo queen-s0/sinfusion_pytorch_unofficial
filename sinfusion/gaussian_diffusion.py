@@ -1,11 +1,19 @@
-import torch
 
+from collections import namedtuple
+from functools import partial
+from random import random
+
+import torch
 from torch import nn
 from torch.nn import functional as F
 
-from functools import partial
+from einops import reduce
+
+from tqdm.auto import tqdm
 
 from sinfusion.utils import (
+    normalize_to_neg_one_to_one,
+    unnormalize_to_zero_to_one,
     linear_beta_schedule, 
     cosine_beta_schedule, 
     default,
@@ -14,17 +22,22 @@ from sinfusion.utils import (
 )
 
 
+# constants
+
+ModelPrediction =  namedtuple('ModelPrediction', ['pred_noise', 'pred_x_start'])
+
+
 class GaussianDiffusion(nn.Module):
     def __init__(
         self,
         model,
         *,
         image_size,
-        timesteps = 1000,
+        timesteps = 50,
         sampling_timesteps = None,
-        loss_type = 'l1',
-        objective = 'pred_noise',
-        beta_schedule = 'cosine',
+        loss_type = 'l2',
+        objective = 'pred_x0',
+        beta_schedule = 'linear',
         p2_loss_weight_gamma = 0., # p2 loss weight, from https://arxiv.org/abs/2204.00227 - 0 is equivalent to weight of 1 across time - 1. is recommended
         p2_loss_weight_k = 1,
         ddim_sampling_eta = 1.

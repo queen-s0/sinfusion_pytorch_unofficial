@@ -1,6 +1,19 @@
+import math
+
 import torch
+from torch.utils.data import Dataset, DataLoader
+from torch.optim import Adam
+from torch.optim.lr_scheduler import MultiStepLR
+from torchvision import utils
+from ema_pytorch import EMA
+
+from tqdm.auto import tqdm
 
 from accelerate import Accelerator
+
+from pathlib import Path
+from multiprocessing import cpu_count
+
 from sinfusion.utils import (
     has_int_squareroot, 
     cycle, 
@@ -8,40 +21,27 @@ from sinfusion.utils import (
     num_to_groups
 )
 
-from torch.utils.data import Dataset, DataLoader
-from torch.optim import Adam
-from torchvision import utils
-
-from ema_pytorch import EMA
-
-from tqdm.auto import tqdm
-
-from pathlib import Path
-from multiprocessing import cpu_count
-
-
 # trainer class
 class Trainer(object):
     def __init__(
         self,
         diffusion_model,
-        folder,
+        ds,
         *,
-        train_batch_size = 16,
+        train_batch_size = 1,
         gradient_accumulate_every = 1,
-        augment_horizontal_flip = True,
+        augment_horizontal_flip = False,
         train_lr = 1e-4,
-        train_num_steps = 100000,
-        ema_update_every = 10,
-        ema_decay = 0.995,
-        adam_betas = (0.9, 0.99),
+        train_num_steps = 50000,
+        ema_update_every = 1,
+        ema_decay =  0.9999,
+        adam_betas = (0.9, 0.999),
         save_and_sample_every = 1000,
-        num_samples = 25,
+        num_samples = 4,
         results_folder = './results',
         amp = False,
         fp16 = False,
-        num_workers = None,
-        split_batches = True,
+        split_batches = False,
         convert_image_to = None
     ):
         super().__init__()
@@ -67,9 +67,8 @@ class Trainer(object):
 
         # dataset and dataloader
 
-        num_workers = num_workers or cpu_count()
-        self.ds = Dataset(folder, self.image_size, augment_horizontal_flip = augment_horizontal_flip, convert_image_to = convert_image_to)
-        dl = DataLoader(self.ds, batch_size = train_batch_size, shuffle = True, pin_memory = True, num_workers = num_workers)
+        self.ds = ds
+        dl = DataLoader(self.ds, batch_size = train_batch_size, pin_memory = True)
 
         dl = self.accelerator.prepare(dl)
         self.dl = cycle(dl)
@@ -77,6 +76,7 @@ class Trainer(object):
         # optimizer
 
         self.opt = Adam(diffusion_model.parameters(), lr = train_lr, betas = adam_betas)
+        self.sched = MultiStepLR(self.opt, [100000,])
 
         # for logging results in a folder periodically
 
@@ -92,7 +92,7 @@ class Trainer(object):
 
         # prepare model, dataloader, optimizer with accelerator
 
-        self.model, self.opt = self.accelerator.prepare(self.model, self.opt)
+        self.model, self.opt, self.sched = self.accelerator.prepare(self.model, self.opt, self.sched)
 
     def save(self, milestone):
         if not self.accelerator.is_local_main_process:
@@ -102,6 +102,7 @@ class Trainer(object):
             'step': self.step,
             'model': self.accelerator.get_state_dict(self.model),
             'opt': self.opt.state_dict(),
+            'sched': self.sched.state_dict(),
             'ema': self.ema.state_dict(),
             'scaler': self.accelerator.scaler.state_dict() if exists(self.accelerator.scaler) else None
         }
@@ -119,6 +120,7 @@ class Trainer(object):
 
         self.step = data['step']
         self.opt.load_state_dict(data['opt'])
+        self.sched.load_state_dict(data['sched'])
         self.ema.load_state_dict(data['ema'])
 
         if exists(self.accelerator.scaler) and exists(data['scaler']):
@@ -144,13 +146,14 @@ class Trainer(object):
 
                     self.accelerator.backward(loss)
 
-                accelerator.clip_grad_norm_(self.model.parameters(), 1.0)
+                # accelerator.clip_grad_norm_(self.model.parameters(), 1.0)
                 pbar.set_description(f'loss: {total_loss:.4f}')
 
                 accelerator.wait_for_everyone()
 
                 self.opt.step()
                 self.opt.zero_grad()
+                self.sched.step()
 
                 accelerator.wait_for_everyone()
 
