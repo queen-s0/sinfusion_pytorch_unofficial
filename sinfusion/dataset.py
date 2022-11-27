@@ -19,7 +19,7 @@ class CropImageDataset(Dataset):
         ])
 
     def __len__(self):
-        return 1
+        return 128
 
     def __getitem__(self, idx):
         return self.t(self.image)
