@@ -27,7 +27,8 @@ class ConvNextBlock(nn.Module):
         self.pwconv2 = nn.Linear(hid_dim, out_dim)
         self.gamma = nn.Parameter(layer_scale_init_value * torch.ones((out_dim)), 
                                     requires_grad=True) if layer_scale_init_value > 0 else None
-        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+        # self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+        self.drop_path = nn.Conv2d(in_dim, out_dim, 1) if in_dim != out_dim else nn.Identity()
 
     def forward(self, x, t=None):
         input = x
@@ -44,7 +45,7 @@ class ConvNextBlock(nn.Module):
             x = self.gamma * x
         x = x.permute(0, 3, 1, 2) # (N, H, W, C) -> (N, C, H, W)
 
-        x = input + self.drop_path(x)
+        x = x + self.drop_path(input)
         return x
 
 

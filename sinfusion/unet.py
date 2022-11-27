@@ -5,8 +5,8 @@ from torch import nn
 
 from einops import rearrange
 
-from convnext import ConvNextBlock
-from utils import default
+from sinfusion.convnext import ConvNextBlock
+from sinfusion.utils import default
 
 
 # sinusoidal positional embeds
@@ -97,7 +97,7 @@ class Unet(nn.Module):
                 ConvNextBlock(dim, dim, 4 * dim, layer_scale_init_value=0)
             )
             self.ups.append(
-                ConvNextBlock(2 * dim, dim, 4 * dim, layer_scale_init_value=0)
+                ConvNextBlock(dim, dim, 4 * dim, layer_scale_init_value=0)
             )
 
         self.mid_block = ConvNextBlock(dim, dim, 4 * dim, layer_scale_init_value=0)
@@ -125,7 +125,8 @@ class Unet(nn.Module):
         x = self.mid_block(x, t)
 
         for block in self.ups:
-            x = torch.cat((x, h.pop()), dim = 1)
+            # x = torch.cat((x, h.pop()), dim = 1)
+            x = x + h.pop()
             x = block(x, t)
 
         return self.final_conv(x)
