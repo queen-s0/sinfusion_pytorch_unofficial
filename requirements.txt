@@ -1,0 +1,9 @@
+accelerate
+einops
+ema-pytorch
+pillow
+torch
+torchvision
+tqdm
+timm
+torchinfo
