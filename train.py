@@ -18,8 +18,7 @@ def main(args):
 
     trainer = Trainer(diffusion, 
                       dataset,
-                      train_batch_size=4,
-                      train_lr=1e-5)
+                      train_batch_size=1)
 
     trainer.train()
 
